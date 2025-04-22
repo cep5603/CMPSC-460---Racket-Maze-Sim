@@ -33,7 +33,7 @@
        (row-image (first grid))
        (rest grid))))
 
-; SAMPLE grid unused for now!
+; SAMPLE grid unused for now
 (define ex_grid
   (list
    (list 1 0 1 1 0 0)
@@ -49,11 +49,10 @@
                 (build-list cols
                             (lambda (_)
                               (random 2))))))
-;; create a 12×20 grid
-(define sample-grid (make-grid 12 20))
 
-;; draw it once (no state change on tick)
-(big-bang sample-grid
+(define world-grid (make-grid 12 20))
+
+(big-bang world-grid
   [to-draw    grid-image]
   [on-tick    (lambda (g) g)  ;; identity
-   1])                   ;; tick every 1s (irrelevant here)
+   1])
