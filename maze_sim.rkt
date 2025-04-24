@@ -33,26 +33,37 @@
        (row-image (first grid))
        (rest grid))))
 
-; SAMPLE grid unused for now
-(define ex_grid
+; 16x24 grid
+(define main-grid
   (list
-   (list 1 0 1 1 0 0)
-   (list 0 1 0 1 1 0)
-   (list 1 1 1 0 0 0)
-   (list 0 0 1 0 1 0)
-   (list 1 0 0 1 0 0)
+   (list 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1)
+   (list 1 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 1 1 0 1 1)
+   (list 1 1 1 0 1 0 0 0 1 1 0 1 1 1 1 1 1 1 0 1 0 0 0 1)
+   (list 1 1 1 0 1 0 1 1 1 1 1 0 1 1 0 0 1 1 0 0 0 1 0 1)
+   (list 1 1 0 0 0 0 1 1 1 0 1 0 1 1 0 1 0 1 1 1 1 0 0 1)
+   (list 1 1 0 1 1 0 0 1 0 0 0 0 0 0 0 1 0 0 0 0 0 1 1 1)
+   (list 1 1 0 1 1 1 1 1 0 1 1 1 0 1 1 1 0 1 0 1 0 0 1 1)
+   (list 1 0 0 0 0 0 0 0 0 1 0 0 0 1 1 1 1 1 0 1 0 1 1 1)
+   (list 1 0 1 0 1 0 1 1 1 1 0 1 0 1 0 1 0 0 0 1 0 0 0 1)
+   (list 1 0 1 1 1 0 1 1 0 1 1 1 0 1 0 1 0 1 1 1 0 1 0 1)
+   (list 1 0 0 0 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1)
+   (list 1 1 1 0 1 1 1 1 1 1 1 0 0 1 1 1 0 1 0 1 1 1 0 1)
+   (list 1 0 1 0 1 1 1 0 0 0 1 1 0 1 1 1 0 1 0 1 0 0 0 1)
+   (list 1 0 1 0 0 0 0 0 1 0 0 0 1 1 1 1 1 1 0 0 1 1 0 1)
+   (list 1 0 0 0 1 1 1 1 1 0 1 0 0 0 0 1 1 1 1 1 0 0 0 1)
+   (list 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1)
    ))
 
-(define (make-grid rows cols)
+(define (make-random-grid rows cols)
   (build-list rows
               (lambda (_)
                 (build-list cols
                             (lambda (_)
                               (random 2))))))
 
-(define world-grid (make-grid 12 20))
+(define world-grid (make-random-grid 16 24))
 
-(big-bang world-grid
-  [to-draw    grid-image]
-  [on-tick    (lambda (g) g)  ;; identity
+(big-bang main-grid
+  [to-draw grid-image]
+  [on-tick (lambda (g) g)  ;; identity
    1])
