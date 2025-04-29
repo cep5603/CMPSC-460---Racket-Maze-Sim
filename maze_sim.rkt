@@ -50,28 +50,7 @@
       (cons (f (first lst)) (rest lst))
       (cons (first lst) (list-update (rest lst) (- idx 1) f))))
 
-; UNUSED currently
-;; make-grid: generate a random grid with walls, agent, and goal
-(define (make-grid rows cols)
-  (define base-grid
-    (build-list rows
-                (lambda (_)
-                  (build-list cols
-                              (lambda (_)
-                                (random 2)))))) ;; 0 or 1
-  
-  ;; Place agent at top-left (replacing whatever was there)
-  (define with-agent
-    (list-update base-grid 1
-                 (lambda (row)
-                   (list-update row 1 (lambda (_) 2)))))
-  
-  ;; Place goal at bottom-right (replacing whatever was there)
-  (list-update with-agent (- rows 2)
-               (lambda (row)
-                 (list-update row (- cols 2) (lambda (_) 3)))))
-
-;; Define agent position for tracking movement
+;; Define agent position for tracking movement (mutable var)
 (define agent-pos (cons 1 1))
 
 ;; Handle key events to move agent
@@ -112,11 +91,135 @@
       ;; If can't move, return unchanged grid
       grid))
 
-; unused for now
-;; Initialize world grid
-;(define world-grid (make-grid 12 20))
+(define directions '("up" "down" "left" "right"))
 
-; 16x24 grid
+; Random walk
+; We re-use the same move-grid method as used in manual input
+(define (random-step-grid grid)
+  (let ([dir (list-ref directions (random (length directions)))])
+    (move-grid grid dir)))
+
+; Method to find x,y pos of goal
+; Currently, it's always in the same place, but this is so we can change it
+(define (find-goal grid)
+  (let loop-rows ([rows grid] [r 0])
+    (if (empty? rows)
+        #f
+        (let ([row (first rows)])
+          (let loop-cols ([cells row] [c 0])
+            (cond
+              [(empty? cells)
+               (loop-rows (rest rows) (+ r 1))]
+              [(= (first cells) 3) (cons r c)]
+              [else (loop-cols (rest cells) (+ c 1))]))))))
+
+; BFS main method!
+; Makes a list of dirs from agent-pos to goal
+(define (bfs-path grid)
+  (define start agent-pos)
+  (define goal (find-goal grid))
+  (define rows (length grid))
+  (define cols (length (first grid)))
+
+  ; Helper func to check if pos is inside grid
+  (define (in-bounds? pos)
+    (and (>= (car pos) 0) (<  (car pos) rows)
+         (>= (cdr pos) 0) (<  (cdr pos) cols)))
+
+  ; Helper func to check if pos is wall
+  (define (passable? pos)
+    (not (= 1 (list-ref (list-ref grid (car pos))
+                       (cdr pos)))))
+
+  ; 4 adjacent valid cells
+  (define (neighbors pos)
+    (filter (lambda (p) (and (in-bounds? p) (passable? p)))
+            (list
+             (cons (- (car pos) 1) (cdr pos))
+             (cons (+ (car pos) 1) (cdr pos))
+             (cons (car pos) (- (cdr pos) 1))
+             (cons (car pos) (+ (cdr pos) 1)))))
+
+  ; queue -> cells to explore
+  ; visited -> set of already seen cells
+  ; parents -> list dict to map each visited cell pos to parent pos
+  ; BFS returns a list (dictionary) mapping child to parent, when goal is found
+  (define (bfs queue visited parents)
+    (cond
+      [(empty? queue) #f] ; Base case: No more cells to visit + goal not found
+      [(equal? (first queue) goal) parents] ; Found goal
+      [else
+       ; Expansion
+       (let* ([curr (first queue)]
+              [restq (rest queue)]
+              [nbrs (filter (lambda (p) (not (member p visited))) (neighbors curr))]
+              [new-q (append restq nbrs)] ; New to queue
+              [new-v (append visited nbrs)] ; New to visited
+              [new-p (append parents (map (lambda (p) (cons p curr)) nbrs))]) ; New to parents
+         (bfs new-q new-v new-p))]))
+
+  ; Run BFS from start
+  (let ([parent-map (bfs (list start) (list start) '())])
+    (if (not parent-map)
+        '() ; No path so empty
+        ; Otherwise, walk back from goal to start, building direction list
+        (letrec ([build
+                  (lambda (pos path)
+                    (if (equal? pos start)
+                        path
+                        (let* ([pr  (cdr (assoc pos parent-map))]
+                               [dir (cond
+                                      [(equal? pr 
+                                               (cons (- (car pos) 1)
+                                                     (cdr pos))) "down"]
+                                      [(equal? pr 
+                                               (cons (+ (car pos) 1)
+                                                     (cdr pos))) "up"]
+                                      [(equal? pr 
+                                               (cons (car pos)
+                                                     (- (cdr pos) 1))) "right"]
+                                      [else "left"])])
+                          ; Prepend dir then continue
+                          (build pr (cons dir path)))))])
+          (build goal '())))))
+
+; States: manual, random, search
+; Stores: (list grid mode path)
+(define (state-to-image state)
+  (grid-image (first state)))
+
+(define (handle-key state key)
+  (define grid  (first state))
+  (define mode  (second state))
+  (cond
+    [(key=? key "m")
+     (list grid 'manual '())]
+    [(key=? key "r")
+     (list grid 'random '())]
+    [(key=? key "s")
+     (let ([p (bfs-path grid)])
+       (list grid 'search p))]
+    [(and (eq? mode 'manual) (member key directions))
+     (list (move-grid grid key) 'manual '())]
+    [else state]))
+
+(define (handle-tick state)
+  (define grid (first state))
+  (define mode (second state))
+  (define path (third state))
+  (cond
+    [(eq? mode 'random)
+     (list (random-step-grid grid) 'random '())]
+    [(eq? mode 'search)
+     (if (empty? path)
+         ; Path done (or no goal remaining); go back to manual
+         (list grid 'manual '())
+         ; Step along next dir
+         (let ([g (move-grid grid (first path))])
+           (list g 'search (rest path))))]
+    [else state]))
+
+; 16x24 pre-defined grid
 (define main-grid
   (list
    (list 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1)
@@ -137,8 +240,8 @@
    (list 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1)
    ))
 
-;; Start the big-bang with the world
-(big-bang main-grid
-  [to-draw  grid-image]
-  [on-key   move-grid]
-  [on-tick  (lambda (g) g) 1])  ;; no change on tick for now
+(big-bang
+  (list main-grid 'manual '())
+  (to-draw state-to-image)
+  (on-key handle-key)
+  (on-tick handle-tick 0.1))
